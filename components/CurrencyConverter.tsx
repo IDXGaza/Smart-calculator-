@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { CURRENCIES } from '../constants';
 import { ConversionResult } from '../types';
 import { getCurrencyConversion } from '../services/geminiService';
@@ -8,9 +8,21 @@ const CurrencyConverter: React.FC = () => {
   const [amountStr, setAmountStr] = useState<string>('1');
   const [from, setFrom] = useState<string>('USD');
   const [to, setTo] = useState<string>('SAR');
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const [result, setResult] = useState<ConversionResult | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+
+  // تصفية العملات بناءً على البحث
+  const filteredCurrencies = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return CURRENCIES;
+    return CURRENCIES.filter(
+      (c) =>
+        c.name.toLowerCase().includes(query) ||
+        c.code.toLowerCase().includes(query)
+    );
+  }, [searchQuery]);
 
   const handleConvert = async () => {
     const amountNum = parseFloat(amountStr);
@@ -35,7 +47,7 @@ const CurrencyConverter: React.FC = () => {
     const temp = from;
     setFrom(to);
     setTo(temp);
-    setResult(null); // مسح النتيجة السابقة عند التغيير
+    setResult(null);
   };
 
   return (
@@ -46,6 +58,7 @@ const CurrencyConverter: React.FC = () => {
       </h2>
       
       <div className="space-y-6">
+        {/* حقل إدخال المبلغ */}
         <div className="relative">
           <label className="block text-sm font-semibold text-gray-500 mb-2 mr-1">المبلغ المراد تحويله</label>
           <input
@@ -54,7 +67,6 @@ const CurrencyConverter: React.FC = () => {
             value={amountStr}
             onChange={(e) => {
               const val = e.target.value;
-              // يسمح فقط بالأرقام ونقطة عشرية واحدة
               if (/^\d*\.?\d*$/.test(val)) {
                 setAmountStr(val);
               }
@@ -64,17 +76,48 @@ const CurrencyConverter: React.FC = () => {
           />
         </div>
 
+        {/* شريط البحث عن العملات */}
+        <div className="relative">
+          <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
+            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full p-3 pr-11 bg-blue-50/50 border border-blue-100 rounded-2xl text-sm font-medium text-gray-800 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+            placeholder="ابحث عن اسم العملة أو الرمز (مثل: SAR)..."
+          />
+          {searchQuery && (
+            <button 
+              onClick={() => setSearchQuery('')}
+              className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400 hover:text-gray-600"
+            >
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+            </button>
+          )}
+        </div>
+
+        {/* اختيار العملات */}
         <div className="grid grid-cols-[1fr,auto,1fr] items-center gap-3">
           <div className="space-y-2">
             <label className="block text-xs font-bold text-gray-400 mr-1 uppercase">من</label>
             <select
               value={from}
               onChange={(e) => setFrom(e.target.value)}
-              className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 font-bold focus:ring-2 focus:ring-blue-500 outline-none appearance-none cursor-pointer"
+              className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 font-bold focus:ring-2 focus:ring-blue-500 outline-none appearance-none cursor-pointer text-sm"
             >
-              {CURRENCIES.map(c => (
-                <option key={c.code} value={c.code}>{c.flag} {c.code}</option>
-              ))}
+              {filteredCurrencies.length > 0 ? (
+                filteredCurrencies.map(c => (
+                  <option key={c.code} value={c.code}>{c.flag} {c.code}</option>
+                ))
+              ) : (
+                <option disabled>لا توجد نتائج</option>
+              )}
             </select>
           </div>
           
@@ -91,11 +134,15 @@ const CurrencyConverter: React.FC = () => {
             <select
               value={to}
               onChange={(e) => setTo(e.target.value)}
-              className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 font-bold focus:ring-2 focus:ring-blue-500 outline-none appearance-none cursor-pointer"
+              className="w-full p-4 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 font-bold focus:ring-2 focus:ring-blue-500 outline-none appearance-none cursor-pointer text-sm"
             >
-              {CURRENCIES.map(c => (
-                <option key={c.code} value={c.code}>{c.flag} {c.code}</option>
-              ))}
+              {filteredCurrencies.length > 0 ? (
+                filteredCurrencies.map(c => (
+                  <option key={c.code} value={c.code}>{c.flag} {c.code}</option>
+                ))
+              ) : (
+                <option disabled>لا توجد نتائج</option>
+              )}
             </select>
           </div>
         </div>
